@@ -1,18 +1,34 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, SearchResult, ShelfData } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// NÃO inicializamos o cliente globalmente aqui para evitar crash na inicialização
+// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY }); 
+
+// Função auxiliar para obter o cliente de forma segura
+const getGenAIClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  
+  if (!apiKey) {
+    console.warn("Gemini API Key não encontrada. Verifique as variáveis de ambiente na Vercel.");
+    return null;
+  }
+  
+  return new GoogleGenAI({ apiKey });
+};
 
 // Using standard Picsum for consistency since we can't fetch real album art without protected APIs
 const getPlaceholderImage = (seed: string) => `https://picsum.photos/seed/${seed}/300/450`;
 
 export const searchItems = async (query: string, category: Category): Promise<SearchResult[]> => {
-  if (!process.env.API_KEY) {
-    console.error("API Key missing");
+  const ai = getGenAIClient();
+
+  // Se não houver cliente (sem chave), retorna array vazio sem quebrar a tela
+  if (!ai) {
     return [];
   }
 
-  const modelName = 'gemini-3-flash-preview';
+  // Usando um modelo estável
+  const modelName = 'gemini-2.0-flash';
   
   let categoryContext = "";
   if (category === 'movies') categoryContext = "Movies/Cinema (Title, Director, Year)";
@@ -47,7 +63,7 @@ export const searchItems = async (query: string, category: Category): Promise<Se
       },
     });
 
-    const data = JSON.parse(response.text || "[]");
+    const data = JSON.parse(response.text() || "[]");
 
     // Map the AI response to our app structure
     return data.map((item: any) => ({
@@ -76,8 +92,10 @@ export const generateAffiliateLink = (item: SearchResult, category: Category): s
 };
 
 export const generateCulturalPersona = async (shelf: ShelfData): Promise<string> => {
-  if (!process.env.API_KEY) {
-    return "Erro: Chave de API não configurada.";
+  const ai = getGenAIClient();
+
+  if (!ai) {
+    return "Erro: Chave de API não configurada no ambiente.";
   }
 
   const movies = shelf.movies.filter(i => i).map(i => `${i?.title} (${i?.subtitle})`).join(", ");
@@ -103,11 +121,11 @@ export const generateCulturalPersona = async (shelf: ShelfData): Promise<string>
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: prompt,
     });
 
-    return response.text || "Não foi possível gerar a análise no momento.";
+    return response.text() || "Não foi possível gerar a análise no momento.";
   } catch (error) {
     console.error("Persona generation failed:", error);
     return "O oráculo cultural está dormindo. Tente novamente mais tarde.";
