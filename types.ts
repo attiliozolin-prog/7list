@@ -21,3 +21,12 @@ export interface SearchResult {
   year?: string;
   imageUrl?: string;
 }
+
+export interface UserProfile {
+  name: string;
+  handle: string;
+  bio: string;
+  avatarUrl: string;
+  instagramUrl?: string;
+  spotifyUrl?: string;
+}

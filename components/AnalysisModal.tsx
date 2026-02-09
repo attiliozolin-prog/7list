@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Sparkles, Copy, Check } from 'lucide-react';
+import { X, Sparkles, Copy, Check, Share2 } from 'lucide-react';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -14,9 +14,29 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, a
   if (!isOpen) return null;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(analysis);
+    navigator.clipboard.writeText(`Minha Vibe Cultural 7list:\n\n${analysis}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Minha Identidade Cultural - 7list',
+      text: `Minha Vibe Cultural 7list:\n\n${analysis}`,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // Se o usuário cancelar ou o browser não suportar, fazemos o fallback para copiar
+        if ((err as any).name !== 'AbortError') {
+            handleCopy();
+        }
+      }
+    } else {
+      handleCopy();
+    }
   };
 
   return (
@@ -46,14 +66,14 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, a
             O que sua curadoria diz sobre você, segundo a IA.
           </p>
 
-          <div className="w-full bg-brand-50/50 rounded-xl p-6 mb-6 border border-brand-100 relative min-h-[120px] flex items-center justify-center">
+          <div className="w-full bg-brand-50/50 rounded-xl p-6 mb-6 border border-brand-100 relative min-h-[120px] flex items-center justify-center shadow-inner">
             {isLoading ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm text-brand-400 font-medium animate-pulse">Consultando os astros da cultura...</span>
               </div>
             ) : (
-              <p className="font-serif text-lg text-gray-800 italic leading-relaxed">
+              <p className="font-serif text-lg text-gray-800 italic leading-relaxed select-text">
                 "{analysis}"
               </p>
             )}
@@ -62,11 +82,11 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, a
           {!isLoading && (
             <div className="flex gap-3 w-full">
               <button
-                onClick={handleCopy}
+                onClick={handleShare}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all active:scale-95 shadow-lg"
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
-                {copied ? 'Copiado!' : 'Copiar Texto'}
+                {copied ? <Check size={18} /> : <Share2 size={18} />}
+                {copied ? 'Copiado para área de transferência!' : 'Compartilhar'}
               </button>
             </div>
           )}
