@@ -52,9 +52,10 @@ export const ShelfSection: React.FC<ShelfSectionProps> = ({
         </span>
       </div>
       
-      {/* Centered Scrollable List */}
-      <div className="w-full overflow-x-auto hide-scrollbar pb-6">
-        <div className="flex gap-4 md:gap-6 w-max mx-auto px-4">
+      {/* CORREÇÃO: Usamos flex-wrap para garantir que os 7 itens fiquem visíveis */}
+      {/* Removemos o overflow-x e w-max que causavam o corte do 7º item */}
+      <div className="w-full px-4 pb-6">
+        <div className="flex flex-wrap justify-center gap-4 md:gap-6 max-w-7xl mx-auto">
           {items.map((item, index) => (
             <SlotCard
               key={`${category}-${index}`}
