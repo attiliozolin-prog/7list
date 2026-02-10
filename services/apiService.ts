@@ -3,18 +3,16 @@ import { Category, SearchResult, ShelfData } from "../types";
 // --- CONFIGURAÇÃO DAS CHAVES ---
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-// Removemos a importação da chave do Google Books para evitar bloqueios de segurança
 
 // URLs Base
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
-const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes";
-const ITUNES_BASE_URL = "https://itunes.apple.com/search";
+const ITUNES_BASE_URL = "https://itunes.apple.com/search"; // Usaremos para Música e Livros
 
 // --- FUNÇÕES AUXILIARES ---
 const getPlaceholderImage = (seed: string) => `https://picsum.photos/seed/${seed}/300/450`;
 
-// 1. BUSCA DE FILMES (TMDb) - MANTIDA IGUAL
+// 1. BUSCA DE FILMES (TMDb) - MANTIDO
 const searchMovies = async (query: string): Promise<SearchResult[]> => {
   if (!TMDB_API_KEY) return [];
   try {
@@ -40,49 +38,38 @@ const searchMovies = async (query: string): Promise<SearchResult[]> => {
   }
 };
 
-// 2. BUSCA DE LIVROS (Google Books) - CORRIGIDA (SEM CHAVE)
+// 2. BUSCA DE LIVROS (iTunes Books API) - ALTERADO PARA GARANTIR FUNCIONAMENTO
 const searchBooks = async (query: string): Promise<SearchResult[]> => {
   try {
-    // URL simplificada SEM a API Key. Isso garante que não teremos erro de 'Referer Not Allowed'
+    // media=ebook busca na base de livros da Apple
     const response = await fetch(
-      `${GOOGLE_BOOKS_BASE_URL}?q=${encodeURIComponent(query)}&maxResults=5&printType=books`
+      `${ITUNES_BASE_URL}?term=${encodeURIComponent(query)}&media=ebook&limit=5&lang=pt_br`
     );
     
-    if (!response.ok) {
-        console.warn(`Google Books API Error: ${response.status}`);
-        return [];
-    }
-
     const data = await response.json();
 
-    if (!data.items) return [];
+    if (!data.results || data.results.length === 0) return [];
 
-    return data.items.map((book: any) => {
-      const info = book.volumeInfo;
-      const authors = info.authors ? info.authors.join(", ") : "Autor desconhecido";
-      const year = info.publishedDate ? info.publishedDate.split('-')[0] : '';
+    return data.results.map((book: any) => {
+      // Pega capa em alta resolução
+      const hdImage = book.artworkUrl100?.replace('100x100', '600x600');
+      const year = book.releaseDate ? book.releaseDate.split('-')[0] : '';
       
-      // Tratamento de imagem para garantir HTTPS
-      let thumbnail = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
-      if (thumbnail) {
-        thumbnail = thumbnail.replace('http://', 'https://').replace('&edge=curl', ''); 
-      }
-
       return {
-        title: info.title,
-        subtitle: `${authors} ${year ? '• ' + year : ''}`,
-        imageUrl: thumbnail || getPlaceholderImage(info.title),
-        externalId: book.id,
+        title: book.trackName, // Na API da Apple, nome do livro é trackName
+        subtitle: `${book.artistName} • ${year}`,
+        imageUrl: hdImage || book.artworkUrl100,
+        externalId: book.trackId.toString(),
         category: 'books'
       };
     });
   } catch (error) {
-    console.error("Erro Google Books:", error);
+    console.error("Erro iTunes Books:", error);
     return [];
   }
 };
 
-// 3. BUSCA DE MÚSICAS (iTunes) - MANTIDA IGUAL
+// 3. BUSCA DE MÚSICAS (iTunes Music API) - MANTIDO
 const searchMusic = async (query: string): Promise<SearchResult[]> => {
   try {
     const response = await fetch(
@@ -90,6 +77,7 @@ const searchMusic = async (query: string): Promise<SearchResult[]> => {
     );
     const data = await response.json();
     if (!data.results) return [];
+    
     return data.results.map((item: any) => {
       const hdImage = item.artworkUrl100?.replace('100x100', '600x600');
       const year = item.releaseDate ? item.releaseDate.split('-')[0] : '';
@@ -102,7 +90,7 @@ const searchMusic = async (query: string): Promise<SearchResult[]> => {
       };
     });
   } catch (error) {
-    console.error("Erro iTunes:", error);
+    console.error("Erro iTunes Music:", error);
     return [];
   }
 };
@@ -118,13 +106,11 @@ export const searchItems = async (query: string, category: Category): Promise<Se
   }
 };
 
-// --- GERAÇÃO DE LINK (Afiliado) ---
 export const generateAffiliateLink = (item: SearchResult, category: Category): string => {
   const query = encodeURIComponent(`${item.title} ${item.subtitle}`);
   return `https://www.amazon.com.br/s?k=${query}&tag=7list-mvp-20`;
 };
 
-// --- PERSONA (OpenAI) ---
 export const generateCulturalPersona = async (shelf: ShelfData): Promise<string> => {
   if (!OPENAI_API_KEY) return "Configure a VITE_OPENAI_API_KEY na Vercel.";
   const items = [
