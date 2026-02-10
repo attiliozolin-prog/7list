@@ -1,6 +1,7 @@
-import React from 'react';
-import { Instagram, Camera, Link as LinkIcon } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Instagram, Camera, Loader2 } from 'lucide-react'; // Adicionei Loader2
 import { UserProfile } from '../types';
+import { supabase } from '../lib/supabase'; // Importamos o Supabase para fazer o upload
 
 interface ProfileHeaderProps {
   profile: UserProfile;
@@ -8,7 +9,7 @@ interface ProfileHeaderProps {
   onProfileUpdate: (updates: Partial<UserProfile>) => void;
 }
 
-// Ícone do Spotify customizado (mantido do original)
+// Ícone do Spotify (mantido)
 const SpotifyIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
     <path d="M12 0C5.4 0 0 5.4 0 12C0 18.6 5.4 24 12 24C18.6 24 24 18.6 24 12C24 5.4 18.6 0 12 0ZM17.5 17.1C17.2 17.5 16.7 17.6 16.3 17.4C13.5 15.7 10 15.3 5.8 16.2C5.4 16.3 5 16 4.9 15.6C4.8 15.2 5.1 14.8 5.5 14.7C10.1 13.7 14 14.1 17.2 16C17.6 16.3 17.7 16.8 17.5 17.1ZM19 13.9C18.6 14.4 17.9 14.6 17.4 14.2C14.2 12.3 9.4 11.7 5.6 12.9C5.1 13 4.5 12.7 4.3 12.2C4.2 11.7 4.5 11.1 5 11C9.5 9.6 14.8 10.3 18.6 12.6C19 12.9 19.2 13.5 19 13.9ZM19.1 10.5C15.2 8.2 8.9 8 5.2 9.1C4.6 9.3 4 8.9 3.8 8.3C3.6 7.7 4 7.1 4.6 6.9C8.9 5.6 16 5.8 20.5 8.5C21 8.8 21.2 9.4 20.9 10C20.6 10.5 19.9 10.7 19.1 10.5Z"/>
@@ -20,8 +21,45 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   isEditing,
   onProfileUpdate,
 }) => {
-  
-  // Função auxiliar para lidar com cliques nos botões sociais (mantida)
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Lógica de Upload de Foto
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('Você deve selecionar uma imagem para upload.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // 1. Upload para o Supabase Storage (Bucket 'avatars')
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // 2. Pegar a URL pública
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      // 3. Atualizar o perfil com a nova URL
+      onProfileUpdate({ avatarUrl: data.publicUrl });
+
+    } catch (error) {
+      alert('Erro ao fazer upload da imagem. Verifique se criou o bucket "avatars" no Supabase.');
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSocialClick = (platform: 'instagram' | 'spotify') => {
     if (isEditing) {
       const currentUrl = platform === 'instagram' ? profile.instagramUrl : profile.spotifyUrl;
@@ -41,7 +79,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     }
   };
 
-  // Função para limpar o handle (remover @ e espaços)
   const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase().replace('@', '').trim();
     onProfileUpdate({ handle: value });
@@ -50,7 +87,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   return (
     <div className="flex flex-col items-center text-center pt-8 pb-2 md:pt-12 md:pb-4 space-y-6">
       
-      {/* Avatar (Mantido igual) */}
+      {/* Avatar */}
       <div className="relative group">
         <div className="absolute -inset-1 bg-gradient-to-tr from-brand-400 to-amber-400 rounded-full opacity-75 blur group-hover:opacity-100 transition duration-200"></div>
         <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
@@ -60,17 +97,24 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
              <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400"><Camera size={40} /></div>
           )}
           
+          {/* Botão de Upload (Invisível Input + Label Customizado) */}
           {isEditing && (
-            <button
-                onClick={() => {
-                    const url = prompt("Cole a URL da sua nova foto de perfil:", profile.avatarUrl);
-                    if (url) onProfileUpdate({ avatarUrl: url });
-                }}
-                className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity cursor-pointer z-10"
-                title="Alterar foto"
-            >
-                <Camera size={32} />
-            </button>
+            <>
+                <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity cursor-pointer z-10"
+                    title="Alterar foto"
+                >
+                    {uploading ? <Loader2 className="animate-spin" size={32} /> : <Camera size={32} />}
+                </div>
+                <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    onChange={handlePhotoUpload}
+                    accept="image/*"
+                    className="hidden" // Input escondido
+                />
+            </>
           )}
         </div>
       </div>
@@ -92,7 +136,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             </h1>
           )}
 
-          {/* Handle (@usuario) - AQUI ESTÁ A MUDANÇA IMPORTANTE */}
+          {/* Handle (@usuario) */}
           <div className="flex items-center justify-center gap-0.5">
             <span className="text-xl md:text-2xl font-bold text-brand-500">@</span>
             {isEditing ? (
@@ -125,7 +169,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           )}
       </div>
 
-      {/* Botões Sociais (Design Original) */}
+      {/* Botões Sociais */}
       <div className="flex items-center justify-center gap-4 pt-2">
         {/* Instagram */}
         {(isEditing || profile.instagramUrl) && (
