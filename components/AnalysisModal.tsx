@@ -62,20 +62,27 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, a
           <h3 className="font-serif text-2xl font-bold text-gray-900 mb-2">
             Sua Identidade Cultural
           </h3>
-          <p className="text-sm text-gray-500 mb-6">
-            O que sua curadoria diz sobre você, segundo a IA.
+          <p className="text-sm text-gray-500 mb-8">
+            O que sua curadoria diz sobre você.
           </p>
 
-          <div className="w-full bg-brand-50/50 rounded-xl p-6 mb-6 border border-brand-100 relative min-h-[120px] flex items-center justify-center shadow-inner">
+          <div className="w-full bg-brand-50/30 rounded-2xl p-8 mb-8 border border-brand-100 relative min-h-[140px] flex items-center justify-center shadow-sm">
             {isLoading ? (
               <div className="flex flex-col items-center gap-3">
-                <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-brand-400 font-medium animate-pulse">Consultando os astros da cultura...</span>
+                <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-500 rounded-full animate-spin" />
+                <span className="text-sm text-brand-500 font-bold animate-pulse tracking-wide">LENDO AS ESTRELAS...</span>
               </div>
             ) : (
-              <p className="font-serif text-lg text-gray-800 italic leading-relaxed select-text">
-                "{analysis}"
-              </p>
+              <div className="relative w-full">
+                 {/* Aspas Decorativas Gigantes */}
+                <span className="absolute -top-6 -left-2 text-6xl text-brand-300 font-serif opacity-40 select-none leading-none">“</span>
+                
+                <p className="font-sans text-xl font-medium text-gray-800 leading-relaxed select-text px-2 relative z-10">
+                  {analysis}
+                </p>
+                
+                <span className="absolute -bottom-8 -right-2 text-6xl text-brand-300 font-serif opacity-40 select-none leading-none">”</span>
+              </div>
             )}
           </div>
 
@@ -83,10 +90,10 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, a
             <div className="flex gap-3 w-full">
               <button
                 onClick={handleShare}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all active:scale-95 shadow-lg"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all active:scale-95 shadow-lg text-sm uppercase tracking-wider"
               >
                 {copied ? <Check size={18} /> : <Share2 size={18} />}
-                {copied ? 'Copiado para área de transferência!' : 'Compartilhar'}
+                {copied ? 'Copiado!' : 'Compartilhar nos Stories'}
               </button>
             </div>
           )}
