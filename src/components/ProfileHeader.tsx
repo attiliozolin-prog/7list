@@ -1,150 +1,168 @@
-import React, { useState, useEffect } from 'react';
-import { Instagram, Music, Camera, Link as LinkIcon, Upload } from 'lucide-react';
+import React from 'react';
+import { Instagram, Camera, Link as LinkIcon } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface ProfileHeaderProps {
   profile: UserProfile;
   isEditing: boolean;
-  onProfileUpdate?: (updates: Partial<UserProfile>) => void;
+  onProfileUpdate: (updates: Partial<UserProfile>) => void;
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ profile, isEditing, onProfileUpdate }) => {
-  const [localProfile, setLocalProfile] = useState(profile);
+// Ícone do Spotify customizado (mantido do original)
+const SpotifyIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 0C5.4 0 0 5.4 0 12C0 18.6 5.4 24 12 24C18.6 24 24 18.6 24 12C24 5.4 18.6 0 12 0ZM17.5 17.1C17.2 17.5 16.7 17.6 16.3 17.4C13.5 15.7 10 15.3 5.8 16.2C5.4 16.3 5 16 4.9 15.6C4.8 15.2 5.1 14.8 5.5 14.7C10.1 13.7 14 14.1 17.2 16C17.6 16.3 17.7 16.8 17.5 17.1ZM19 13.9C18.6 14.4 17.9 14.6 17.4 14.2C14.2 12.3 9.4 11.7 5.6 12.9C5.1 13 4.5 12.7 4.3 12.2C4.2 11.7 4.5 11.1 5 11C9.5 9.6 14.8 10.3 18.6 12.6C19 12.9 19.2 13.5 19 13.9ZM19.1 10.5C15.2 8.2 8.9 8 5.2 9.1C4.6 9.3 4 8.9 3.8 8.3C3.6 7.7 4 7.1 4.6 6.9C8.9 5.6 16 5.8 20.5 8.5C21 8.8 21.2 9.4 20.9 10C20.6 10.5 19.9 10.7 19.1 10.5Z"/>
+  </svg>
+);
 
-  // Sincroniza o estado local quando o perfil muda no banco
-  useEffect(() => {
-    setLocalProfile(profile);
-  }, [profile]);
-
-  const handleChange = (field: keyof UserProfile, value: string) => {
-    setLocalProfile(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleBlur = (field: keyof UserProfile) => {
-    if (onProfileUpdate) {
-      // Se for o handle, garante que não tenha @ e seja minúsculo
-      if (field === 'handle') {
-         const cleanHandle = localProfile.handle.replace('@', '').toLowerCase().trim();
-         onProfileUpdate({ handle: cleanHandle });
-         setLocalProfile(prev => ({ ...prev, handle: cleanHandle }));
-      } else {
-         onProfileUpdate({ [field]: localProfile[field] });
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ 
+  profile, 
+  isEditing,
+  onProfileUpdate,
+}) => {
+  
+  // Função auxiliar para lidar com cliques nos botões sociais (mantida)
+  const handleSocialClick = (platform: 'instagram' | 'spotify') => {
+    if (isEditing) {
+      const currentUrl = platform === 'instagram' ? profile.instagramUrl : profile.spotifyUrl;
+      const promptText = platform === 'instagram' 
+        ? "Cole a URL do seu perfil no Instagram:" 
+        : "Cole a URL do seu perfil no Spotify:";
+      
+      const newUrl = prompt(promptText, currentUrl || "");
+      if (newUrl !== null) {
+        onProfileUpdate({ 
+          [platform === 'instagram' ? 'instagramUrl' : 'spotifyUrl']: newUrl 
+        });
       }
+    } else {
+      const url = platform === 'instagram' ? profile.instagramUrl : profile.spotifyUrl;
+      if (url) window.open(url, '_blank');
     }
   };
 
+  // Função para limpar o handle (remover @ e espaços)
+  const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toLowerCase().replace('@', '').trim();
+    onProfileUpdate({ handle: value });
+  };
+
   return (
-    <div className="flex flex-col items-center text-center space-y-6 animate-in fade-in duration-700">
+    <div className="flex flex-col items-center text-center pt-8 pb-2 md:pt-12 md:pb-4 space-y-6">
       
-      {/* Avatar */}
+      {/* Avatar (Mantido igual) */}
       <div className="relative group">
-        <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-tr from-brand-200 to-rose-200 p-1 shadow-xl shadow-brand-500/20">
-          <div className="w-full h-full rounded-full bg-white overflow-hidden relative">
-            {localProfile.avatarUrl ? (
-              <img src={localProfile.avatarUrl} alt={localProfile.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300">
-                <Camera size={40} />
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {isEditing && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <input 
-              type="text" 
-              placeholder="URL da Foto"
-              className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-48 text-xs p-2 border rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              value={localProfile.avatarUrl}
-              onChange={(e) => handleChange('avatarUrl', e.target.value)}
-              onBlur={() => handleBlur('avatarUrl')}
-            />
-            <button className="absolute bottom-0 right-0 p-2 bg-brand-500 text-white rounded-full shadow-lg hover:bg-brand-600 transition-colors">
-              <Upload size={16} />
+        <div className="absolute -inset-1 bg-gradient-to-tr from-brand-400 to-amber-400 rounded-full opacity-75 blur group-hover:opacity-100 transition duration-200"></div>
+        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
+          {profile.avatarUrl ? (
+             <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+          ) : (
+             <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400"><Camera size={40} /></div>
+          )}
+          
+          {isEditing && (
+            <button
+                onClick={() => {
+                    const url = prompt("Cole a URL da sua nova foto de perfil:", profile.avatarUrl);
+                    if (url) onProfileUpdate({ avatarUrl: url });
+                }}
+                className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity cursor-pointer z-10"
+                title="Alterar foto"
+            >
+                <Camera size={32} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Inputs ou Textos */}
-      <div className="space-y-3 max-w-lg w-full">
-        {isEditing ? (
-          <>
+      {/* Inputs de Texto */}
+      <div className="w-full max-w-lg space-y-2">
+          {/* Nome */}
+          {isEditing ? (
             <input
-              type="text"
-              className="w-full text-center font-serif text-4xl font-bold bg-transparent border-b-2 border-brand-200 focus:border-brand-500 focus:outline-none placeholder-gray-300"
-              placeholder="Seu Nome"
-              value={localProfile.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              onBlur={() => handleBlur('name')}
-            />
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-2xl font-bold text-brand-400">@</span>
-              <input
                 type="text"
-                className="w-1/2 text-left font-sans text-2xl font-bold text-brand-600 bg-transparent border-b border-dashed border-brand-200 focus:border-brand-500 focus:outline-none placeholder-brand-200/50"
-                placeholder="usuario"
-                value={localProfile.handle.replace('@', '')}
-                onChange={(e) => handleChange('handle', e.target.value)}
-                onBlur={() => handleBlur('handle')}
-              />
-            </div>
-            <textarea
-              className="w-full text-center text-gray-600 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand-200 rounded-lg p-2 focus:outline-none resize-none"
-              placeholder="Sua bio curta..."
-              rows={2}
-              value={localProfile.bio}
-              onChange={(e) => handleChange('bio', e.target.value)}
-              onBlur={() => handleBlur('bio')}
+                value={profile.name}
+                onChange={(e) => onProfileUpdate({ name: e.target.value })}
+                className="font-serif text-4xl md:text-5xl font-bold text-gray-900 tracking-tight text-center bg-transparent border-b-2 border-brand-200 focus:border-brand-500 outline-none w-full placeholder-gray-300 pb-1"
+                placeholder="Seu Nome"
             />
-            
-            <div className="flex gap-2 justify-center pt-2">
-               <input 
-                  className="text-xs border rounded p-1 w-32" 
-                  placeholder="Link Instagram"
-                  value={localProfile.instagramUrl || ''}
-                  onChange={(e) => handleChange('instagramUrl', e.target.value)}
-                  onBlur={() => handleBlur('instagramUrl')}
-               />
-               <input 
-                  className="text-xs border rounded p-1 w-32" 
-                  placeholder="Link Spotify"
-                  value={localProfile.spotifyUrl || ''}
-                  onChange={(e) => handleChange('spotifyUrl', e.target.value)}
-                  onBlur={() => handleBlur('spotifyUrl')}
-               />
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="font-serif text-4xl font-bold text-gray-900 tracking-tight">
-              {localProfile.name || 'Seu Nome'}
+          ) : (
+            <h1 className="font-serif text-4xl md:text-5xl font-bold text-gray-900 tracking-tight">
+                {profile.name || 'Seu Nome'}
             </h1>
-            {localProfile.handle && (
-              <p className="text-xl font-bold text-brand-500 opacity-90">@{localProfile.handle}</p>
+          )}
+
+          {/* Handle (@usuario) - AQUI ESTÁ A MUDANÇA IMPORTANTE */}
+          <div className="flex items-center justify-center gap-0.5">
+            <span className="text-xl md:text-2xl font-bold text-brand-500">@</span>
+            {isEditing ? (
+                <input
+                    type="text"
+                    value={profile.handle ? profile.handle.replace('@', '') : ''}
+                    onChange={handleHandleChange}
+                    className="font-sans text-xl md:text-2xl font-bold text-brand-600 bg-transparent border-b border-dashed border-brand-300 focus:border-brand-500 outline-none w-auto min-w-[100px] text-left placeholder-brand-200"
+                    placeholder="usuario"
+                />
+            ) : (
+                <span className="font-sans text-xl md:text-2xl font-bold text-brand-500">
+                    {profile.handle ? profile.handle.replace('@', '') : 'usuario'}
+                </span>
             )}
-            <p className="text-gray-600 text-lg leading-relaxed max-w-md mx-auto">
-              {localProfile.bio || 'Adicione uma bio...'}
+          </div>
+
+          {/* Bio */}
+          {isEditing ? (
+            <textarea
+                value={profile.bio}
+                onChange={(e) => onProfileUpdate({ bio: e.target.value })}
+                className="text-lg text-gray-600 w-full mt-4 leading-relaxed text-center bg-brand-50/50 border border-brand-200 rounded-lg p-3 focus:border-brand-500 outline-none resize-none min-h-[80px]"
+                placeholder="Escreva uma breve bio sobre você..."
+            />
+          ) : (
+            <p className="text-lg text-gray-600 mt-4 leading-relaxed px-4">
+                {profile.bio || 'Adicione uma bio para seu perfil ficar completo.'}
             </p>
-            
-            <div className="flex items-center justify-center gap-4 pt-2">
-              {localProfile.instagramUrl && (
-                <a href={localProfile.instagramUrl} target="_blank" rel="noreferrer" className="p-2 bg-white text-pink-600 rounded-full shadow-sm hover:shadow-md hover:scale-110 transition-all">
-                  <Instagram size={20} />
-                </a>
-              )}
-              {localProfile.spotifyUrl && (
-                <a href={localProfile.spotifyUrl} target="_blank" rel="noreferrer" className="p-2 bg-white text-green-600 rounded-full shadow-sm hover:shadow-md hover:scale-110 transition-all">
-                  <Music size={20} />
-                </a>
-              )}
-            </div>
-          </>
+          )}
+      </div>
+
+      {/* Botões Sociais (Design Original) */}
+      <div className="flex items-center justify-center gap-4 pt-2">
+        {/* Instagram */}
+        {(isEditing || profile.instagramUrl) && (
+          <button 
+            onClick={() => handleSocialClick('instagram')}
+            className={`
+              p-3 rounded-full transition-all shadow-sm hover:scale-105 flex items-center justify-center
+              ${isEditing 
+                ? 'border-2 border-dashed border-brand-300 bg-brand-50 text-brand-500 hover:bg-brand-100' 
+                : 'bg-white border border-gray-200 text-gray-600 hover:text-[#E1306C] hover:border-[#E1306C] hover:bg-pink-50'}
+              ${!profile.instagramUrl && isEditing ? 'opacity-70' : ''}
+            `}
+            title={isEditing ? "Adicionar link do Instagram" : "Instagram"}
+          >
+            <Instagram size={24} />
+          </button>
+        )}
+        
+        {/* Spotify */}
+        {(isEditing || profile.spotifyUrl) && (
+          <button 
+            onClick={() => handleSocialClick('spotify')}
+            className={`
+              p-3 rounded-full transition-all shadow-sm hover:scale-105 flex items-center justify-center
+              ${isEditing 
+                ? 'border-2 border-dashed border-brand-300 bg-brand-50 text-brand-500 hover:bg-brand-100' 
+                : 'bg-white border border-gray-200 text-gray-600 hover:text-[#1DB954] hover:border-[#1DB954] hover:bg-green-50'}
+              ${!profile.spotifyUrl && isEditing ? 'opacity-70' : ''}
+            `}
+            title={isEditing ? "Adicionar link do Spotify" : "Spotify"}
+          >
+            <SpotifyIcon className="w-6 h-6" />
+          </button>
         )}
       </div>
       
-      {!isEditing && <div className="w-24 h-1 bg-brand-200 rounded-full opacity-50" />}
+      {!isEditing && <div className="w-24 h-1 bg-brand-100 rounded-full mt-6 opacity-50" />}
     </div>
   );
 };
