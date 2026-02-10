@@ -1,102 +1,101 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { Category, SearchResult, ShelfData } from "../types";
 
-// NÃO inicializamos o cliente globalmente aqui para evitar crash na inicialização
-// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY }); 
-
-// Função auxiliar para obter o cliente de forma segura
-const getGenAIClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-  
-  if (!apiKey) {
-    console.warn("Gemini API Key não encontrada. Verifique as variáveis de ambiente na Vercel.");
-    return null;
-  }
-  
-  return new GoogleGenAI({ apiKey });
+// Função auxiliar para verificar a chave
+const getApiKey = () => {
+  // Tenta pegar a chave da OpenAI. 
+  // Nota: Em projetos Vite, variáveis de ambiente geralmente precisam começar com VITE_ 
+  // para serem visíveis no frontend, MAS como estamos na Vercel, vamos tentar acessá-las diretamente
+  // ou usar uma estratégia segura.
+  const key = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+  if (!key) console.warn("OPENAI_API_KEY não encontrada.");
+  return key;
 };
 
-// Using standard Picsum for consistency since we can't fetch real album art without protected APIs
+// Usamos o Picsum para imagens consistentes sem precisar de API de imagens paga
 const getPlaceholderImage = (seed: string) => `https://picsum.photos/seed/${seed}/300/450`;
 
 export const searchItems = async (query: string, category: Category): Promise<SearchResult[]> => {
-  const ai = getGenAIClient();
-
-  // Se não houver cliente (sem chave), retorna array vazio sem quebrar a tela
-  if (!ai) {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    console.error("API Key da OpenAI ausente");
     return [];
   }
 
-  // Usando um modelo estável
-  const modelName = 'gemini-2.0-flash';
-  
   let categoryContext = "";
-  if (category === 'movies') categoryContext = "Movies/Cinema (Title, Director, Year)";
-  if (category === 'books') categoryContext = "Books/Literature (Title, Author, Year)";
-  if (category === 'music') categoryContext = "Music/Songs/Albums (Song/Album Title, Artist)";
+  if (category === 'movies') categoryContext = "Filmes (Título, Diretor, Ano)";
+  if (category === 'books') categoryContext = "Livros (Título, Autor, Ano)";
+  if (category === 'music') categoryContext = "Músicas/Álbuns (Título da Música/Álbum, Artista)";
 
+  // Prompt otimizado para JSON
   const prompt = `
-    Search for the following query in the database of ${categoryContext}: "${query}".
-    Return a list of the top 5 most likely matches.
-    For each match, provide the exact title and the subtitle (Director for movies, Author for books, Artist for music).
-    Also provide a seed string for a random image generator.
+    Você é um assistente de banco de dados cultural. 
+    Busque por: "${query}" na categoria: ${categoryContext}.
+    Retorne APENAS um JSON válido contendo uma lista com os top 5 resultados mais prováveis.
+    
+    O formato do JSON deve ser estritamente este:
+    {
+      "results": [
+        {
+          "title": "Nome exato",
+          "subtitle": "Diretor (filmes), Autor (livros) ou Artista (música)",
+          "imageSeed": "uma string curta e única para gerar uma imagem aleatoria (ex: titulo-sem-espaco)"
+        }
+      ]
+    }
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              subtitle: { type: Type.STRING },
-              imageSeed: { type: Type.STRING },
-            },
-            required: ["title", "subtitle", "imageSeed"],
-          },
-        },
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
       },
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // Modelo rápido e barato
+        messages: [
+          { role: "system", content: "Você é uma API JSON." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" }, // Garante JSON válido
+        temperature: 0.3
+      })
     });
 
-    const data = JSON.parse(response.text() || "[]");
+    const data = await response.json();
+    
+    if (data.error) {
+        console.error("OpenAI Error:", data.error);
+        return [];
+    }
 
-    // Map the AI response to our app structure
-    return data.map((item: any) => ({
+    const content = JSON.parse(data.choices[0].message.content);
+    
+    return content.results.map((item: any) => ({
       title: item.title,
       subtitle: item.subtitle,
-      imageUrl: getPlaceholderImage(item.imageSeed + query), // Salt with query to ensure variety
+      imageUrl: getPlaceholderImage(item.imageSeed || query), 
     }));
 
   } catch (error) {
     console.error("Search failed:", error);
-    // Return empty array on error so UI handles it gracefully
     return [];
   }
 };
 
 export const generateAffiliateLink = (item: SearchResult, category: Category): string => {
-  // Logic to simulate the affiliate link generation strategy described in the brief.
-  // In a real app, this would query Amazon's Product Advertising API.
-  // Here we construct a search URL with an affiliate tag.
-  
+  // Mantemos a mesma lógica de URL da Amazon
   const query = encodeURIComponent(`${item.title} ${item.subtitle}`);
-  const tag = "7list-mvp-20"; // Simulated tag
+  const tag = "7list-mvp-20"; 
   const baseUrl = `https://www.amazon.com.br/s?k=${query}&tag=${tag}`;
-  
   return baseUrl;
 };
 
 export const generateCulturalPersona = async (shelf: ShelfData): Promise<string> => {
-  const ai = getGenAIClient();
+  const apiKey = getApiKey();
 
-  if (!ai) {
-    return "Erro: Chave de API não configurada no ambiente.";
-  }
+  if (!apiKey) return "Erro: Chave de API não configurada.";
 
   const movies = shelf.movies.filter(i => i).map(i => `${i?.title} (${i?.subtitle})`).join(", ");
   const books = shelf.books.filter(i => i).map(i => `${i?.title} (${i?.subtitle})`).join(", ");
@@ -107,27 +106,36 @@ export const generateCulturalPersona = async (shelf: ShelfData): Promise<string>
   }
 
   const prompt = `
-    Analise a seguinte lista de favoritos culturais de uma pessoa (o '7list' dela):
-    
-    Filmes: ${movies || "Nenhum selecionado"}
-    Livros: ${books || "Nenhum selecionado"}
-    Músicas: ${music || "Nenhuma selecionada"}
+    Analise a seguinte lista de favoritos culturais de uma pessoa:
+    Filmes: ${movies}
+    Livros: ${books}
+    Músicas: ${music}
 
-    Aja como um crítico cultural sofisticado, porém acessível e moderno (estilo colunista de cultura pop ou influencer cult).
-    Escreva um parágrafo curto (máximo 280 caracteres, estilo Twitter/Threads) definindo a "vibe" ou personalidade dessa pessoa baseada nessas escolhas.
-    Seja perspicaz, levemente elogioso, mas com um toque de humor ou ironia carinhosa. Use emojis.
-    O texto deve ser em Português do Brasil e pronto para ser compartilhado nas redes sociais.
+    Aja como um crítico cultural sofisticado e cool. Escreva um parágrafo curto (max 280 caracteres) definindo a "vibe" dessa pessoa. Use emojis. Português do Brasil.
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 150
+      })
     });
 
-    return response.text() || "Não foi possível gerar a análise no momento.";
+    const data = await response.json();
+    if (data.error) return "O oráculo cultural está indisponível.";
+    
+    return data.choices[0].message.content || "Análise indisponível.";
+
   } catch (error) {
     console.error("Persona generation failed:", error);
-    return "O oráculo cultural está dormindo. Tente novamente mais tarde.";
+    return "O oráculo cultural está dormindo.";
   }
 };
