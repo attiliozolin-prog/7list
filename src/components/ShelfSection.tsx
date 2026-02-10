@@ -39,7 +39,7 @@ export const ShelfSection: React.FC<ShelfSectionProps> = ({
 
   return (
     <section className="py-8 border-b border-gray-100 last:border-0">
-      {/* Centered Header */}
+      {/* Cabeçalho Centralizado */}
       <div className="container mx-auto px-4 mb-6 flex flex-col items-center justify-center">
         <div className="flex items-center gap-3 mb-2">
           <div className={`p-2 rounded-lg bg-white shadow-sm ${getColor()}`}>
@@ -52,10 +52,15 @@ export const ShelfSection: React.FC<ShelfSectionProps> = ({
         </span>
       </div>
       
-      {/* CORREÇÃO: Usamos flex-wrap para garantir que os 7 itens fiquem visíveis */}
-      {/* Removemos o overflow-x e w-max que causavam o corte do 7º item */}
-      <div className="w-full px-4 pb-6">
-        <div className="flex flex-wrap justify-center gap-4 md:gap-6 max-w-7xl mx-auto">
+      {/* CORREÇÃO DE LAYOUT:
+         1. w-full overflow-x-auto: Cria a janela de rolagem que ocupa a largura da tela.
+         2. flex-nowrap: Garante LINHA ÚNICA (não quebra para baixo).
+         3. min-w-max: Garante que os cards mantenham seu tamanho e não encolham.
+         4. justify-start: Começa da esquerda para garantir que o item 1 nunca seja cortado.
+         5. px-4 md:px-8: Margens de respiro nas laterais.
+      */}
+      <div className="w-full overflow-x-auto pb-8 px-4 hide-scrollbar">
+        <div className="flex flex-nowrap items-start gap-4 md:gap-6 min-w-max mx-auto md:justify-center">
           {items.map((item, index) => (
             <SlotCard
               key={`${category}-${index}`}
