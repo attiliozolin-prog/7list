@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, X, Music, Book, Film, Plus } from 'lucide-react';
 import { Category, SearchResult } from '../types';
-import { searchItems } from '../services/geminiService';
+import { searchItems } from '../services/apiService';
 
 interface SearchModalProps {
   isOpen: boolean;
