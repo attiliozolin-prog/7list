@@ -38,7 +38,7 @@ const searchMovies = async (query: string): Promise<SearchResult[]> => {
   }
 };
 
-// 2. BUSCA DE LIVROS (iTunes Books API) - ALTERADO PARA GARANTIR FUNCIONAMENTO
+// 2. BUSCA DE LIVROS (iTunes Books API) - MANTIDO
 const searchBooks = async (query: string): Promise<SearchResult[]> => {
   try {
     // media=ebook busca na base de livros da Apple
@@ -111,15 +111,31 @@ export const generateAffiliateLink = (item: SearchResult, category: Category): s
   return `https://www.amazon.com.br/s?k=${query}&tag=7list-mvp-20`;
 };
 
+// --- PERSONA CULTURAL (TURBINADA COM PROMPT CRIATIVO) ---
 export const generateCulturalPersona = async (shelf: ShelfData): Promise<string> => {
   if (!OPENAI_API_KEY) return "Configure a VITE_OPENAI_API_KEY na Vercel.";
+  
   const items = [
     ...shelf.movies.filter(i => i).map(i => `Filme: ${i?.title}`),
     ...shelf.books.filter(i => i).map(i => `Livro: ${i?.title}`),
     ...shelf.music.filter(i => i).map(i => `Álbum: ${i?.title}`)
   ].join(", ");
   
-  if (items.length < 5) return "Adicione itens à estante para gerar a análise.";
+  if (items.length < 10) return "Adicione mais itens à estante para o oráculo ler sua mente.";
+
+  const prompt = `
+    Aja como um "Oráculo Cultural" moderno, místico e levemente debochado (mas carinhoso).
+    Analise a "vibe" estética e psicológica dessa pessoa baseada nesta lista de favoritos:
+    ${items}
+
+    Diretrizes Criativas:
+    1. NÃO descreva a lista. Fale sobre a *personalidade* de quem gosta dessas coisas.
+    2. Use uma analogia criativa e poética (ex: "Sua alma tem cheiro de livro velho e chuva...", "Você é o personagem principal de um filme indie...", "Sua vibe é café preto e boletos pagos...").
+    3. O tom deve ser divertido, inteligente e "shareable" (pra postar no story).
+    4. Limite estrito: Máximo 280 caracteres.
+    5. Finalize com 3 emojis que resumam a aura da pessoa.
+    6. Texto em Português do Brasil.
+  `;
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -127,10 +143,20 @@ export const generateCulturalPersona = async (shelf: ShelfData): Promise<string>
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [{ role: "user", content: `Analise a vibe dessa lista cultural: ${items}. Tweet curto (max 280 chars), divertido, pt-BR.` }]
+        messages: [
+          { role: "system", content: "Você é uma IA especialista em análise cultural e personalidade." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.85, // Temperatura mais alta para ser mais criativo
+        max_tokens: 250
       })
     });
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || "Erro ao interpretar vibe.";
-  } catch (e) { return "O oráculo está offline."; }
+    
+    // Remove aspas se a IA colocar, para ficar limpo no design
+    let text = data.choices?.[0]?.message?.content || "O oráculo está confuso com tanta cultura.";
+    text = text.replace(/^["']|["']$/g, ''); 
+    
+    return text;
+  } catch (e) { return "O oráculo está tirando um cochilo."; }
 };
