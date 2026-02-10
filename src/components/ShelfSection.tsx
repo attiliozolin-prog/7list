@@ -52,23 +52,25 @@ export const ShelfSection: React.FC<ShelfSectionProps> = ({
         </span>
       </div>
       
-      {/* LAYOUT HÍBRIDO:
-         1. Container Principal: Define a largura máxima no Desktop.
-      */}
-      <div className="w-full md:container md:mx-auto md:px-8 pb-4">
+      {/* Container Principal */}
+      <div className="w-full md:container md:mx-auto md:px-4 pb-4">
         
-        {/* A MÁGICA ACONTECE AQUI:
-           MOBILE (Padrão): flex + overflow-x-auto (Rolagem horizontal)
-           DESKTOP (md:): grid + grid-cols-7 (7 colunas fixas, sem rolagem)
+        {/* LÓGICA DO LAYOUT:
+           MOBILE: flex + overflow (Rolagem horizontal, itens fixos grandes)
+           DESKTOP: grid + grid-cols-7 (Grade fixa, itens fluidos)
         */}
-        <div className="flex md:grid md:grid-cols-7 gap-4 overflow-x-auto md:overflow-visible px-4 md:px-0 hide-scrollbar snap-x">
+        <div className="flex md:grid md:grid-cols-7 gap-4 md:gap-3 overflow-x-auto md:overflow-visible px-4 md:px-0 hide-scrollbar snap-x">
           
           {items.map((item, index) => (
-            /* ITEM DO CARD:
-               Mobile: min-w-[140px] -> Garante que o card tenha um tamanho bom para o dedo, forçando a rolagem.
-               Desktop: min-w-0 -> O card obedece o tamanho da coluna do grid.
+            /* O TRUQUE DO CSS (!w-full):
+               1. min-w-[140px]: No celular, força largura mínima para ativar a rolagem.
+               2. md:min-w-0: No desktop, permite encolher para caber na grade.
+               3. [&>*]:!w-full: "Manda" no componente filho (SlotCard). Diz: "Ocupe 100% do espaço que eu te der, nem mais, nem menos."
             */
-            <div key={`${category}-${index}`} className="min-w-[140px] md:min-w-0 md:w-full snap-center">
+            <div 
+              key={`${category}-${index}`} 
+              className="min-w-[140px] md:min-w-0 md:w-full snap-center [&>*]:!w-full [&>*]:!h-full"
+            >
               <SlotCard
                 index={index}
                 item={item}
