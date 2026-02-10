@@ -4,7 +4,7 @@ import { ShelfSection } from './components/ShelfSection';
 import { SearchModal } from './components/SearchModal';
 import { AnalysisModal } from './components/AnalysisModal';
 import { ProfileHeader } from './components/ProfileHeader';
-import { generateAffiliateLink, generateCulturalPersona } from './services/geminiService';
+import { generateAffiliateLink, generateCulturalPersona } from './services/apiService';
 import { Edit2, Eye, Share2, Sparkles } from 'lucide-react';
 
 const INITIAL_SHELF: ShelfData = {
