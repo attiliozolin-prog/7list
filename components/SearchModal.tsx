@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, X, Music, Book, Film, Plus } from 'lucide-react';
 import { Category, SearchResult } from '../types';
-import { searchItems } from '../services/apiService';
+import { searchItems } from '../services/apiService'; 
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -26,13 +26,20 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
     const delayDebounceFn = setTimeout(async () => {
       if (query.length > 2) {
         setIsLoading(true);
-        const data = await searchItems(query, category);
-        setResults(data);
-        setIsLoading(false);
+        try {
+          // Chama a busca unificada (Filmes, Livros ou Músicas)
+          const data = await searchItems(query, category);
+          setResults(data);
+        } catch (error) {
+          console.error("Erro na busca:", error);
+          setResults([]);
+        } finally {
+          setIsLoading(false);
+        }
       } else {
         setResults([]);
       }
-    }, 600); // Debounce to save API calls
+    }, 600); // Espera o usuário parar de digitar por 600ms
 
     return () => clearTimeout(delayDebounceFn);
   }, [query, category]);
@@ -51,7 +58,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
     switch (category) {
       case 'movies': return "Busque um filme (ex: Interestelar)";
       case 'books': return "Busque um livro (ex: Torto Arado)";
-      case 'music': return "Busque uma música (ex: Construção)";
+      case 'music': return "Busque um álbum/artista (ex: Clube da Esquina)";
     }
   };
 
@@ -92,7 +99,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-400">
               <Loader2 className="animate-spin mb-2" size={32} />
-              <p className="text-sm">Buscando na base de dados...</p>
+              <p className="text-sm">Consultando {category === 'books' ? 'biblioteca' : 'base de dados'}...</p>
             </div>
           ) : results.length > 0 ? (
             <div className="space-y-1">
@@ -102,8 +109,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
                   onClick={() => onSelect(item)}
                   className="w-full flex items-center gap-4 p-3 hover:bg-brand-50 rounded-lg transition-colors text-left group"
                 >
-                  <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 shadow-sm">
-                     {item.imageUrl && <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />}
+                  <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 shadow-sm relative">
+                     {item.imageUrl ? (
+                       <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                     ) : (
+                       <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-500 text-xs">?</div>
+                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-gray-900 truncate group-hover:text-brand-700">{item.title}</h4>
@@ -116,6 +127,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
           ) : query.length > 2 ? (
             <div className="text-center py-12 text-gray-400">
               <p>Nenhum resultado encontrado.</p>
+              {category === 'books' && <p className="text-xs mt-2 opacity-70">Verifique se o título está correto.</p>}
             </div>
           ) : (
             <div className="text-center py-12 text-gray-400">
