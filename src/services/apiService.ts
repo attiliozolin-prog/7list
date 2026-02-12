@@ -2,8 +2,6 @@ import { Category, SearchResult, ShelfData } from "../types";
 
 // --- CONFIGURAÇÃO DAS CHAVES ---
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-
 // URLs Base
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
@@ -45,7 +43,7 @@ const searchBooks = async (query: string): Promise<SearchResult[]> => {
     const response = await fetch(
       `${ITUNES_BASE_URL}?term=${encodeURIComponent(query)}&media=ebook&limit=5&lang=pt_br`
     );
-    
+
     const data = await response.json();
 
     if (!data.results || data.results.length === 0) return [];
@@ -54,7 +52,7 @@ const searchBooks = async (query: string): Promise<SearchResult[]> => {
       // Pega capa em alta resolução
       const hdImage = book.artworkUrl100?.replace('100x100', '600x600');
       const year = book.releaseDate ? book.releaseDate.split('-')[0] : '';
-      
+
       return {
         title: book.trackName, // Na API da Apple, nome do livro é trackName
         subtitle: `${book.artistName} • ${year}`,
@@ -77,7 +75,7 @@ const searchMusic = async (query: string): Promise<SearchResult[]> => {
     );
     const data = await response.json();
     if (!data.results) return [];
-    
+
     return data.results.map((item: any) => {
       const hdImage = item.artworkUrl100?.replace('100x100', '600x600');
       const year = item.releaseDate ? item.releaseDate.split('-')[0] : '';
@@ -111,52 +109,30 @@ export const generateAffiliateLink = (item: SearchResult, category: Category): s
   return `https://www.amazon.com.br/s?k=${query}&tag=7list-mvp-20`;
 };
 
-// --- PERSONA CULTURAL (TURBINADA COM PROMPT CRIATIVO) ---
+// --- PERSONA CULTURAL (AGORA VIA SERVERLESS) ---
 export const generateCulturalPersona = async (shelf: ShelfData): Promise<string> => {
-  if (!OPENAI_API_KEY) return "Configure a VITE_OPENAI_API_KEY na Vercel.";
-  
-  const items = [
-    ...shelf.movies.filter(i => i).map(i => `Filme: ${i?.title}`),
-    ...shelf.books.filter(i => i).map(i => `Livro: ${i?.title}`),
-    ...shelf.music.filter(i => i).map(i => `Álbum: ${i?.title}`)
-  ].join(", ");
-  
-  if (items.length < 10) return "Adicione mais itens à estante para o oráculo ler sua mente.";
-
-  const prompt = `
-    Aja como um "Oráculo Cultural" moderno, místico e levemente debochado (mas carinhoso).
-    Analise a "vibe" estética e psicológica dessa pessoa baseada nesta lista de favoritos:
-    ${items}
-
-    Diretrizes Criativas:
-    1. NÃO descreva a lista. Fale sobre a *personalidade* de quem gosta dessas coisas.
-    2. Use uma analogia criativa e poética (ex: "Sua alma tem cheiro de livro velho e chuva...", "Você é o personagem principal de um filme indie...", "Sua vibe é café preto e boletos pagos...").
-    3. O tom deve ser divertido, inteligente e "shareable" (pra postar no story).
-    4. Limite estrito: Máximo 280 caracteres.
-    5. Finalize com 3 emojis que resumam a aura da pessoa.
-    6. Texto em Português do Brasil.
-  `;
-
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("/api/analyze", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "Você é uma IA especialista em análise cultural e personalidade." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.85, // Temperatura mais alta para ser mais criativo
-        max_tokens: 250
+        shelf: {
+          movies: shelf.movies.map(i => i ? `Filme: ${i.title}` : null),
+          books: shelf.books.map(i => i ? `Livro: ${i.title}` : null),
+          music: shelf.music.map(i => i ? `Álbum: ${i.title}` : null),
+        }
       })
     });
+
+    if (!response.ok) {
+      const err = await response.json();
+      return err.text || "O oráculo está mudo no momento.";
+    }
+
     const data = await response.json();
-    
-    // Remove aspas se a IA colocar, para ficar limpo no design
-    let text = data.choices?.[0]?.message?.content || "O oráculo está confuso com tanta cultura.";
-    text = text.replace(/^["']|["']$/g, ''); 
-    
-    return text;
-  } catch (e) { return "O oráculo está tirando um cochilo."; }
+    return data.text;
+  } catch (e) {
+    console.error(e);
+    return "O oráculo está tirando um cochilo (Erro de conexão).";
+  }
 };
