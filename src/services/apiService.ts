@@ -75,84 +75,91 @@ const searchBooks = async (query: string): Promise<SearchResult[]> => {
   }
 };
 
-// 3. BUSCA DE MÚSICAS (MusicBrainz API + Cover Art Archive) - BANCO DE DADOS MASSIVO
-const MUSICBRAINZ_BASE_URL = "https://musicbrainz.org/ws/2";
-const COVERART_BASE_URL = "https://coverartarchive.org";
-let lastMusicBrainzRequest = 0;
+// 3. BUSCA DE MÚSICAS (Spotify API) - RESULTADOS RELEVANTES E POPULARES
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+const SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search";
 
-// Rate limiting: MusicBrainz exige 1 requisição por segundo
-const waitForRateLimit = async () => {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastMusicBrainzRequest;
-  if (timeSinceLastRequest < 1000) {
-    await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceLastRequest));
+// Cache do access token (válido por 1 hora)
+let spotifyAccessToken: string | null = null;
+let tokenExpiresAt = 0;
+
+// Obter access token do Spotify (Client Credentials Flow)
+const getSpotifyToken = async (): Promise<string> => {
+  // Retornar token em cache se ainda válido
+  if (spotifyAccessToken && Date.now() < tokenExpiresAt) {
+    return spotifyAccessToken;
   }
-  lastMusicBrainzRequest = Date.now();
+
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+    throw new Error('Credenciais do Spotify não configuradas');
+  }
+
+  try {
+    const response = await fetch(SPOTIFY_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`)
+      },
+      body: 'grant_type=client_credentials'
+    });
+
+    const data = await response.json();
+    spotifyAccessToken = data.access_token;
+    // Token expira em 1 hora, renovar 5 minutos antes
+    tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
+
+    return spotifyAccessToken;
+  } catch (error) {
+    console.error("Erro ao obter token do Spotify:", error);
+    throw error;
+  }
 };
 
 const searchMusic = async (query: string): Promise<SearchResult[]> => {
   try {
-    await waitForRateLimit();
+    const token = await getSpotifyToken();
 
-    // Busca por recordings (músicas/faixas) no MusicBrainz
+    // Buscar tracks no Spotify (mercado BR para resultados localizados)
     const response = await fetch(
-      `${MUSICBRAINZ_BASE_URL}/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=5`,
+      `${SPOTIFY_SEARCH_URL}?q=${encodeURIComponent(query)}&type=track&limit=5&market=BR`,
       {
         headers: {
-          'User-Agent': '7list/1.0.0 (https://7list.vercel.app)',
-          'Accept': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       }
     );
 
     const data = await response.json();
-    if (!data.recordings || data.recordings.length === 0) return [];
+    if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
+      return [];
+    }
 
-    // Processar cada música
-    const results = await Promise.all(
-      data.recordings.slice(0, 5).map(async (recording: any) => {
-        let coverUrl = getPlaceholderImage(recording.id);
+    return data.tracks.items.map((track: any) => {
+      // Artistas (pode ter múltiplos)
+      const artists = track.artists.map((artist: any) => artist.name).join(', ');
 
-        // Tentar buscar capa do álbum associado à música
-        const releaseId = recording.releases?.[0]?.id;
-        if (releaseId) {
-          try {
-            const coverResponse = await fetch(
-              `${COVERART_BASE_URL}/release/${releaseId}`,
-              { headers: { 'Accept': 'application/json' } }
-            );
+      // Álbum
+      const albumName = track.album.name;
 
-            if (coverResponse.ok) {
-              const coverData = await coverResponse.json();
-              // Pega a capa frontal em alta resolução
-              const frontCover = coverData.images?.find((img: any) => img.front);
-              if (frontCover) {
-                coverUrl = frontCover.thumbnails?.large || frontCover.thumbnails?.small || frontCover.image;
-              }
-            }
-          } catch (coverError) {
-            // Se não encontrar capa, usa placeholder
-            console.debug("Capa não encontrada para:", recording.title);
-          }
-        }
+      // Capa do álbum (pegar a maior disponível)
+      const coverUrl = track.album.images[0]?.url || getPlaceholderImage(track.id);
 
-        const artistName = recording['artist-credit']?.[0]?.name || 'Artista desconhecido';
-        const albumName = recording.releases?.[0]?.title || '';
-        const year = recording['first-release-date'] ? recording['first-release-date'].split('-')[0] : '';
+      // Ano de lançamento
+      const year = track.album.release_date ? track.album.release_date.split('-')[0] : '';
 
-        return {
-          title: recording.title || 'Música desconhecida',
-          subtitle: `${artistName}${albumName ? ' • ' + albumName : ''}${year ? ' • ' + year : ''}`,
-          imageUrl: coverUrl,
-          externalId: recording.id,
-          category: 'music'
-        };
-      })
-    );
-
-    return results;
+      return {
+        title: track.name,
+        subtitle: `${artists} • ${albumName}${year ? ' • ' + year : ''}`,
+        imageUrl: coverUrl,
+        externalId: track.id,
+        category: 'music'
+      };
+    });
   } catch (error) {
-    console.error("Erro MusicBrainz:", error);
+    console.error("Erro Spotify:", error);
     return [];
   }
 };
