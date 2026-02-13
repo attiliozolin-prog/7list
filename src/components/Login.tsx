@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Sparkles, Mail, Lock, ArrowRight, Loader2, UserPlus, LogIn } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, UserPlus, LogIn } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 export const Login: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false); // Alterna entre Login e Cadastro
@@ -67,10 +68,9 @@ export const Login: React.FC = () => {
 
       <div className="bg-white/80 backdrop-blur-lg p-8 md:p-10 rounded-3xl shadow-2xl max-w-md w-full border border-white relative z-10 animate-in fade-in zoom-in duration-300">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-500 text-white mb-4 shadow-lg shadow-brand-500/30">
-            <Sparkles size={24} />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img src={logo} alt="7list Logo" className="h-20 w-auto" />
           </div>
-          <h1 className="font-serif text-4xl font-bold text-gray-900 mb-2">7list</h1>
           <p className="text-gray-500">
             {isSignUp ? 'Crie sua estante cultural.' : 'Sua curadoria em um único link.'}
           </p>
