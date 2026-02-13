@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { ShelfData, Category, Item, SearchResult, UserProfile } from '../types';
@@ -7,7 +8,7 @@ import { SearchModal } from '../components/SearchModal';
 import { AnalysisModal } from '../components/AnalysisModal';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { generateAffiliateLink, generateCulturalPersona } from '../services/apiService';
-import { Edit2, Eye, LogOut, Loader2, Sparkles, Copy, Check } from 'lucide-react';
+import { Edit2, Eye, LogOut, Loader2, Sparkles, Copy, Check, Users, Trophy } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 const INITIAL_SHELF: ShelfData = {
@@ -52,7 +53,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
                 bio: profileData.bio || '',
                 avatarUrl: profileData.avatar_url || '',
                 instagramUrl: profileData.instagram_url,
-                spotifyUrl: profileData.spotify_url
+                spotifyUrl: profileData.spotify_url,
+                country: profileData.country
             });
         }
         const { data: shelfData } = await supabase.from('shelves').select('*').eq('user_id', userId).single();
@@ -79,6 +81,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
         if (updates.instagramUrl !== undefined) dbUpdates.instagram_url = updates.instagramUrl;
         if (updates.spotifyUrl !== undefined) dbUpdates.spotify_url = updates.spotifyUrl;
+        if (updates.country !== undefined) dbUpdates.country = updates.country;
 
         await supabase.from('profiles').update(dbUpdates).eq('id', session.user.id);
     };
@@ -110,7 +113,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
             <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200">
                 <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                     <img src={logo} alt="7list" className="h-10 w-auto" />
-                    <div className="flex items-center gap-2 md:gap-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        {/* Botões de Navegação */}
+                        <Link
+                            to="/explore"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-xs md:text-sm font-bold hover:bg-brand-100 hover:text-brand-600 transition-colors"
+                            title="Explorar usuários"
+                        >
+                            <Users size={16} />
+                            <span className="hidden sm:inline">Explorar</span>
+                        </Link>
+
+                        <Link
+                            to="/rankings"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-xs md:text-sm font-bold hover:bg-amber-100 hover:text-amber-600 transition-colors"
+                            title="Ver rankings"
+                        >
+                            <Trophy size={16} />
+                            <span className="hidden sm:inline">Rankings</span>
+                        </Link>
+
                         {/* Botão de Copiar Link Público */}
                         <button
                             onClick={handleCopyLink}

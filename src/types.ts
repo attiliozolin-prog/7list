@@ -29,4 +29,5 @@ export interface UserProfile {
   avatarUrl: string;
   instagramUrl?: string;
   spotifyUrl?: string;
+  country?: string;
 }

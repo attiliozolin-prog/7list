@@ -5,6 +5,8 @@ import { Session } from '@supabase/supabase-js';
 import { Login } from './components/Login';
 import { PublicProfile } from './components/PublicProfile';
 import { Dashboard } from './pages/Dashboard';
+import { Explore } from './pages/Explore';
+import { Rankings } from './pages/Rankings';
 import { Loader2 } from 'lucide-react';
 
 // --- COMPONENTE PRINCIPAL (Roteador) ---
@@ -29,7 +31,11 @@ const App: React.FC = () => {
         {/* Rota Raiz: Se logado -> Dashboard. Se não -> Login */}
         <Route path="/" element={session ? <Dashboard session={session} onLogout={() => supabase.auth.signOut()} /> : <Login />} />
 
-        {/* Rota Pública: /qualquer-coisa (Ex: /joao) */}
+        {/* Rotas Públicas */}
+        <Route path="/explore" element={<Explore />} />
+        <Route path="/rankings" element={<Rankings />} />
+
+        {/* Rota Pública de Perfil: /qualquer-coisa (Ex: /joao) - DEVE SER A ÚLTIMA */}
         <Route path="/:username" element={<PublicProfile />} />
       </Routes>
     </BrowserRouter>
