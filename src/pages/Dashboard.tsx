@@ -8,6 +8,7 @@ import { AnalysisModal } from '../components/AnalysisModal';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { generateAffiliateLink, generateCulturalPersona } from '../services/apiService';
 import { Edit2, Eye, LogOut, Loader2, Sparkles, Copy, Check } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const INITIAL_SHELF: ShelfData = {
     movies: Array(7).fill(null),
@@ -108,7 +109,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ session, onLogout }) => {
         <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-brand-50/30">
             <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200">
                 <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-                    <span className="font-serif font-bold text-3xl text-brand-500 tracking-tight">7list</span>
+                    <img src={logo} alt="7list" className="h-10 w-auto" />
                     <div className="flex items-center gap-2 md:gap-4">
                         {/* Botão de Copiar Link Público */}
                         <button

@@ -5,6 +5,7 @@ import { ShelfData, UserProfile } from '../types';
 import { ProfileHeader } from './ProfileHeader';
 import { ShelfSection } from './ShelfSection';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const INITIAL_SHELF: ShelfData = {
   movies: Array(7).fill(null),
@@ -27,7 +28,7 @@ export const PublicProfile: React.FC = () => {
     // 1. Busca o perfil pelo Username (ex: @joao)
     // Remove o @ se o usuário digitou na URL
     const cleanHandle = userHandle.replace('@', '');
-    
+
     const { data: profileData, error } = await supabase
       .from('profiles')
       .select('*')
@@ -89,21 +90,21 @@ export const PublicProfile: React.FC = () => {
             <ArrowLeft size={20} />
             <span className="text-sm font-bold">Criar minha lista</span>
           </Link>
-          <span className="font-serif font-bold text-2xl text-brand-500">7list</span>
+          <img src={logo} alt="7list" className="h-8 w-auto" />
           <div className="w-20"></div> {/* Espaço vazio para centralizar */}
         </div>
       </header>
 
       <main className="container mx-auto px-4 max-w-4xl mt-8 space-y-8">
         <ProfileHeader profile={profile} isEditing={false} />
-        
+
         <div className="space-y-4 opacity-100 animate-in fade-in slide-in-from-bottom-4 duration-700">
-           <ShelfSection title="Filmes" category="movies" items={shelf.movies} isEditing={false} />
-           <ShelfSection title="Livros" category="books" items={shelf.books} isEditing={false} />
-           <ShelfSection title="Músicas" category="music" items={shelf.music} isEditing={false} />
+          <ShelfSection title="Filmes" category="movies" items={shelf.movies} isEditing={false} />
+          <ShelfSection title="Livros" category="books" items={shelf.books} isEditing={false} />
+          <ShelfSection title="Músicas" category="music" items={shelf.music} isEditing={false} />
         </div>
       </main>
-      
+
       <footer className="mt-20 py-8 text-center text-gray-400 text-sm">
         Curadoria feita com <span className="text-brand-500">7list</span>
       </footer>
