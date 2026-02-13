@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, X, Music, Book, Film, Plus } from 'lucide-react';
 import { Category, SearchResult } from '../types';
-import { searchItems } from '../services/apiService'; 
+import { searchItems } from '../services/apiService';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -15,6 +15,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Limpar campo de busca quando o modal fecha
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery('');
+      setResults([]);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -65,7 +73,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        
+
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-brand-50">
           <div className="flex items-center gap-2">
@@ -110,11 +118,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, categ
                   className="w-full flex items-center gap-4 p-3 hover:bg-brand-50 rounded-lg transition-colors text-left group"
                 >
                   <div className="w-12 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 shadow-sm relative">
-                     {item.imageUrl ? (
-                       <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
-                     ) : (
-                       <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-500 text-xs">?</div>
-                     )}
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-500 text-xs">?</div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-gray-900 truncate group-hover:text-brand-700">{item.title}</h4>
