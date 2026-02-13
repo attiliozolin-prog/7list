@@ -58,10 +58,10 @@ export const ShelfSection: React.FC<ShelfSectionProps> = ({
         {/* LÓGICA DO LAYOUT:
            MOBILE: flex + overflow (Rolagem horizontal, itens fixos grandes)
            TABLET: grid 4 colunas (cards médios)
-           DESKTOP: grid 7 colunas (cards maiores que antes, mas todos visíveis)
-           DESKTOP XL: grid 7 colunas com max-width para cards não ficarem gigantes
+           DESKTOP: grid 5 colunas (cards maiores e mais visíveis)
+           DESKTOP XL: grid 7 colunas mas com max-width menor para cards não ficarem pequenos
         */}
-        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-7 gap-4 md:gap-4 lg:gap-5 overflow-x-auto md:overflow-visible px-4 md:px-0 hide-scrollbar snap-x md:max-w-7xl md:mx-auto">
+        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 md:gap-4 lg:gap-6 overflow-x-auto md:overflow-visible px-4 md:px-0 hide-scrollbar snap-x md:max-w-5xl lg:max-w-6xl xl:max-w-7xl md:mx-auto">
 
           {items.map((item, index) => (
             /* O TRUQUE DO CSS (!w-full):
