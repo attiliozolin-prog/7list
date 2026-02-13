@@ -94,9 +94,9 @@ const searchMusic = async (query: string): Promise<SearchResult[]> => {
   try {
     await waitForRateLimit();
 
-    // Busca por releases (álbuns) no MusicBrainz
+    // Busca por recordings (músicas/faixas) no MusicBrainz
     const response = await fetch(
-      `${MUSICBRAINZ_BASE_URL}/release/?query=${encodeURIComponent(query)}&fmt=json&limit=5`,
+      `${MUSICBRAINZ_BASE_URL}/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=5`,
       {
         headers: {
           'User-Agent': '7list/1.0.0 (https://7list.vercel.app)',
@@ -106,41 +106,45 @@ const searchMusic = async (query: string): Promise<SearchResult[]> => {
     );
 
     const data = await response.json();
-    if (!data.releases || data.releases.length === 0) return [];
+    if (!data.recordings || data.recordings.length === 0) return [];
 
-    // Buscar capas para cada álbum
+    // Processar cada música
     const results = await Promise.all(
-      data.releases.slice(0, 5).map(async (release: any) => {
-        let coverUrl = getPlaceholderImage(release.id);
+      data.recordings.slice(0, 5).map(async (recording: any) => {
+        let coverUrl = getPlaceholderImage(recording.id);
 
-        // Tentar buscar capa do Cover Art Archive
-        try {
-          const coverResponse = await fetch(
-            `${COVERART_BASE_URL}/release/${release.id}`,
-            { headers: { 'Accept': 'application/json' } }
-          );
+        // Tentar buscar capa do álbum associado à música
+        const releaseId = recording.releases?.[0]?.id;
+        if (releaseId) {
+          try {
+            const coverResponse = await fetch(
+              `${COVERART_BASE_URL}/release/${releaseId}`,
+              { headers: { 'Accept': 'application/json' } }
+            );
 
-          if (coverResponse.ok) {
-            const coverData = await coverResponse.json();
-            // Pega a capa frontal em alta resolução
-            const frontCover = coverData.images?.find((img: any) => img.front);
-            if (frontCover) {
-              coverUrl = frontCover.thumbnails?.large || frontCover.thumbnails?.small || frontCover.image;
+            if (coverResponse.ok) {
+              const coverData = await coverResponse.json();
+              // Pega a capa frontal em alta resolução
+              const frontCover = coverData.images?.find((img: any) => img.front);
+              if (frontCover) {
+                coverUrl = frontCover.thumbnails?.large || frontCover.thumbnails?.small || frontCover.image;
+              }
             }
+          } catch (coverError) {
+            // Se não encontrar capa, usa placeholder
+            console.debug("Capa não encontrada para:", recording.title);
           }
-        } catch (coverError) {
-          // Se não encontrar capa, usa placeholder
-          console.debug("Capa não encontrada para:", release.title);
         }
 
-        const artistName = release['artist-credit']?.[0]?.name || 'Artista desconhecido';
-        const year = release.date ? release.date.split('-')[0] : '';
+        const artistName = recording['artist-credit']?.[0]?.name || 'Artista desconhecido';
+        const albumName = recording.releases?.[0]?.title || '';
+        const year = recording['first-release-date'] ? recording['first-release-date'].split('-')[0] : '';
 
         return {
-          title: release.title || 'Álbum desconhecido',
-          subtitle: `${artistName}${year ? ' • ' + year : ''}`,
+          title: recording.title || 'Música desconhecida',
+          subtitle: `${artistName}${albumName ? ' • ' + albumName : ''}${year ? ' • ' + year : ''}`,
           imageUrl: coverUrl,
-          externalId: release.id,
+          externalId: recording.id,
           category: 'music'
         };
       })
