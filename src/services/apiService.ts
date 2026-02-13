@@ -5,7 +5,6 @@ const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 // URLs Base
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
-const ITUNES_BASE_URL = "https://itunes.apple.com/search"; // Usaremos para Música e Livros
 
 // --- FUNÇÕES AUXILIARES ---
 const getPlaceholderImage = (seed: string) => `https://picsum.photos/seed/${seed}/300/450`;
@@ -36,59 +35,120 @@ const searchMovies = async (query: string): Promise<SearchResult[]> => {
   }
 };
 
-// 2. BUSCA DE LIVROS (iTunes Books API) - MANTIDO
+// 2. BUSCA DE LIVROS (Google Books API) - BIBLIOTECA COMPLETA (40M+ livros)
+const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY;
+const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1";
+
 const searchBooks = async (query: string): Promise<SearchResult[]> => {
   try {
-    // media=ebook busca na base de livros da Apple
-    const response = await fetch(
-      `${ITUNES_BASE_URL}?term=${encodeURIComponent(query)}&media=ebook&limit=5&lang=pt_br`
-    );
+    // Google Books API oferece biblioteca muito mais completa que iTunes
+    const url = GOOGLE_BOOKS_API_KEY
+      ? `${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&langRestrict=pt&maxResults=5&key=${GOOGLE_BOOKS_API_KEY}`
+      : `${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&langRestrict=pt&maxResults=5`;
 
+    const response = await fetch(url);
     const data = await response.json();
 
-    if (!data.results || data.results.length === 0) return [];
+    if (!data.items || data.items.length === 0) return [];
 
-    return data.results.map((book: any) => {
-      // Pega capa em alta resolução
-      const hdImage = book.artworkUrl100?.replace('100x100', '600x600');
-      const year = book.releaseDate ? book.releaseDate.split('-')[0] : '';
+    return data.items.map((item: any) => {
+      const book = item.volumeInfo;
+      const authors = book.authors ? book.authors.join(', ') : 'Autor desconhecido';
+      const year = book.publishedDate ? book.publishedDate.split('-')[0] : '';
+
+      // Google Books oferece capas em várias resoluções
+      const thumbnail = book.imageLinks?.thumbnail?.replace('http:', 'https:') ||
+        book.imageLinks?.smallThumbnail?.replace('http:', 'https:') ||
+        getPlaceholderImage(book.title || 'book');
 
       return {
-        title: book.trackName, // Na API da Apple, nome do livro é trackName
-        subtitle: `${book.artistName} • ${year}`,
-        imageUrl: hdImage || book.artworkUrl100,
-        externalId: book.trackId.toString(),
+        title: book.title || 'Título desconhecido',
+        subtitle: `${authors}${year ? ' • ' + year : ''}`,
+        imageUrl: thumbnail,
+        externalId: item.id,
         category: 'books'
       };
     });
   } catch (error) {
-    console.error("Erro iTunes Books:", error);
+    console.error("Erro Google Books:", error);
     return [];
   }
 };
 
-// 3. BUSCA DE MÚSICAS (iTunes Music API) - MANTIDO
+// 3. BUSCA DE MÚSICAS (MusicBrainz API + Cover Art Archive) - BANCO DE DADOS MASSIVO
+const MUSICBRAINZ_BASE_URL = "https://musicbrainz.org/ws/2";
+const COVERART_BASE_URL = "https://coverartarchive.org";
+let lastMusicBrainzRequest = 0;
+
+// Rate limiting: MusicBrainz exige 1 requisição por segundo
+const waitForRateLimit = async () => {
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastMusicBrainzRequest;
+  if (timeSinceLastRequest < 1000) {
+    await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceLastRequest));
+  }
+  lastMusicBrainzRequest = Date.now();
+};
+
 const searchMusic = async (query: string): Promise<SearchResult[]> => {
   try {
-    const response = await fetch(
-      `${ITUNES_BASE_URL}?term=${encodeURIComponent(query)}&media=music&entity=album&limit=5`
-    );
-    const data = await response.json();
-    if (!data.results) return [];
+    await waitForRateLimit();
 
-    return data.results.map((item: any) => {
-      const hdImage = item.artworkUrl100?.replace('100x100', '600x600');
-      const year = item.releaseDate ? item.releaseDate.split('-')[0] : '';
-      return {
-        title: item.collectionName,
-        subtitle: `${item.artistName} • ${year}`,
-        imageUrl: hdImage || item.artworkUrl100,
-        externalId: item.collectionId.toString(),
-        category: 'music'
-      };
-    });
+    // Busca por releases (álbuns) no MusicBrainz
+    const response = await fetch(
+      `${MUSICBRAINZ_BASE_URL}/release/?query=${encodeURIComponent(query)}&fmt=json&limit=5`,
+      {
+        headers: {
+          'User-Agent': '7list/1.0.0 (https://7list.vercel.app)',
+          'Accept': 'application/json'
+        }
+      }
+    );
+
+    const data = await response.json();
+    if (!data.releases || data.releases.length === 0) return [];
+
+    // Buscar capas para cada álbum
+    const results = await Promise.all(
+      data.releases.slice(0, 5).map(async (release: any) => {
+        let coverUrl = getPlaceholderImage(release.id);
+
+        // Tentar buscar capa do Cover Art Archive
+        try {
+          const coverResponse = await fetch(
+            `${COVERART_BASE_URL}/release/${release.id}`,
+            { headers: { 'Accept': 'application/json' } }
+          );
+
+          if (coverResponse.ok) {
+            const coverData = await coverResponse.json();
+            // Pega a capa frontal em alta resolução
+            const frontCover = coverData.images?.find((img: any) => img.front);
+            if (frontCover) {
+              coverUrl = frontCover.thumbnails?.large || frontCover.thumbnails?.small || frontCover.image;
+            }
+          }
+        } catch (coverError) {
+          // Se não encontrar capa, usa placeholder
+          console.debug("Capa não encontrada para:", release.title);
+        }
+
+        const artistName = release['artist-credit']?.[0]?.name || 'Artista desconhecido';
+        const year = release.date ? release.date.split('-')[0] : '';
+
+        return {
+          title: release.title || 'Álbum desconhecido',
+          subtitle: `${artistName}${year ? ' • ' + year : ''}`,
+          imageUrl: coverUrl,
+          externalId: release.id,
+          category: 'music'
+        };
+      })
+    );
+
+    return results;
   } catch (error) {
-    console.error("Erro iTunes Music:", error);
+    console.error("Erro MusicBrainz:", error);
     return [];
   }
 };
