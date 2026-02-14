@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, ArrowRight, Loader2, UserPlus, LogIn } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, UserPlus, LogIn, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 export const Login: React.FC = () => {
@@ -10,6 +10,9 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Toggle visualização de senha
+  const [forgotPassword, setForgotPassword] = useState(false); // Modo recuperação de senha
+  const [successMsg, setSuccessMsg] = useState(''); // Mensagem de sucesso
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +63,26 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setSuccessMsg('Link de recuperação enviado! Verifique seu e-mail.');
+    } catch (error: any) {
+      setErrorMsg('Erro ao enviar e-mail de recuperação: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-50/50 p-4 font-sans relative overflow-hidden">
       {/* Background Decor */}
@@ -76,7 +99,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
+        <form onSubmit={forgotPassword ? handleForgotPassword : handleAuth} className="space-y-4">
           {/* E-mail */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">E-mail</label>
@@ -93,22 +116,49 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Senha */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Senha</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all text-gray-900 font-medium"
-              />
+          {/* Senha - Oculto no modo "Esqueci senha" */}
+          {!forgotPassword && (
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all text-gray-900 font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-500 transition-colors"
+                  title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {/* Link Esqueci minha senha - apenas no modo login */}
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => { setForgotPassword(true); setErrorMsg(''); setSuccessMsg(''); }}
+                  className="text-sm text-brand-600 hover:text-brand-700 font-medium mt-2 ml-1 transition-colors"
+                >
+                  Esqueceu sua senha?
+                </button>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Mensagem de Sucesso */}
+          {successMsg && (
+            <div className="p-3 bg-green-50 text-green-600 text-sm rounded-lg text-center font-medium animate-in fade-in slide-in-from-top-2">
+              {successMsg}
+            </div>
+          )}
 
           {/* Mensagem de Erro */}
           {errorMsg && (
@@ -125,6 +175,8 @@ export const Login: React.FC = () => {
           >
             {loading ? (
               <Loader2 className="animate-spin" />
+            ) : forgotPassword ? (
+              <>Enviar link de recuperação <ArrowRight size={20} /></>
             ) : isSignUp ? (
               <>Criar Conta Grátis <ArrowRight size={20} /></>
             ) : (
@@ -165,13 +217,23 @@ export const Login: React.FC = () => {
           )}
         </button>
 
-        {/* Alternador Login/Cadastro */}
+        {/* Alternador Login/Cadastro/Voltar */}
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
           <button
-            onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(''); }}
+            onClick={() => {
+              if (forgotPassword) {
+                setForgotPassword(false);
+              } else {
+                setIsSignUp(!isSignUp);
+              }
+              setErrorMsg('');
+              setSuccessMsg('');
+            }}
             className="text-gray-500 hover:text-brand-600 font-medium text-sm flex items-center justify-center gap-2 mx-auto transition-colors"
           >
-            {isSignUp ? (
+            {forgotPassword ? (
+              <><span className="font-bold underline">Voltar ao login</span></>
+            ) : isSignUp ? (
               <>Já tem uma conta? <span className="font-bold underline">Fazer Login</span></>
             ) : (
               <>Não tem conta? <span className="font-bold underline">Cadastre-se</span></>
