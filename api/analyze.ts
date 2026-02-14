@@ -1,5 +1,6 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 // Define o corpo esperado da requisição
 interface AnalyzeRequestBody {
@@ -11,11 +12,22 @@ interface AnalyzeRequestBody {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS configuration
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  // CORS configuration - RESTRITO a domínios permitidos
+  const allowedOrigins = [
+    'https://7list.me',
+    'https://www.7list.me',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -26,6 +38,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // AUTENTICAÇÃO: Verificar token do Supabase
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+
+  // Verificar token com Supabase
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase configuration missing');
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+
+  // VALIDAÇÃO DE INPUT
   const { shelf } = req.body as AnalyzeRequestBody;
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -33,8 +71,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Server configuration error: Missing OpenAI API Key' });
   }
 
-  if (!shelf) {
-      return res.status(400).json({ error: 'Missing shelf data' });
+  if (!shelf || typeof shelf !== 'object') {
+    return res.status(400).json({ error: 'Invalid request: shelf data required' });
+  }
+
+  // Validar e sanitizar cada categoria
+  const categories = ['movies', 'books', 'music'] as const;
+  for (const cat of categories) {
+    if (!Array.isArray(shelf[cat])) {
+      return res.status(400).json({ error: `Invalid ${cat} data` });
+    }
+
+    if (shelf[cat].length > 7) {
+      return res.status(400).json({ error: `Too many ${cat} items (max 7)` });
+    }
+
+    // Sanitizar strings
+    shelf[cat] = shelf[cat].map(item => {
+      if (!item || typeof item !== 'string') return null;
+      // Limitar tamanho e remover caracteres perigosos
+      return item.substring(0, 300).replace(/[<>]/g, '');
+    });
   }
 
   const items = [
@@ -64,9 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${apiKey}` 
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -81,12 +138,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const data = await response.json();
     let text = data.choices?.[0]?.message?.content || "O oráculo está confuso com tanta cultura.";
-    text = text.replace(/^["']|["']$/g, ''); 
+    text = text.replace(/^["']|["']$/g, '');
 
     return res.status(200).json({ text });
 
   } catch (error) {
-    console.error('OpenAI Error:', error);
-    return res.status(500).json({ error: 'Failed to generate persona' });
+    // Logar apenas internamente, sem expor detalhes ao cliente
+    console.error('OpenAI API Error:', error instanceof Error ? error.message : 'Unknown error');
+
+    // Retornar mensagem genérica
+    return res.status(500).json({
+      error: 'Erro ao processar análise. Tente novamente mais tarde.'
+    });
   }
 }

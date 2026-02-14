@@ -1,4 +1,5 @@
 import { Category, SearchResult, ShelfData } from "../types";
+import { supabase } from "../lib/supabase";
 
 // --- CONFIGURAÇÃO DAS CHAVES ---
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
@@ -75,62 +76,16 @@ const searchBooks = async (query: string): Promise<SearchResult[]> => {
   }
 };
 
-// 3. BUSCA DE MÚSICAS (Spotify API) - RESULTADOS RELEVANTES E POPULARES
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
-const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
-const SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search";
-
-// Cache do access token (válido por 1 hora)
-let spotifyAccessToken: string | null = null;
-let tokenExpiresAt = 0;
-
-// Obter access token do Spotify (Client Credentials Flow)
-const getSpotifyToken = async (): Promise<string> => {
-  // Retornar token em cache se ainda válido
-  if (spotifyAccessToken && Date.now() < tokenExpiresAt) {
-    return spotifyAccessToken;
-  }
-
-  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-    throw new Error('Credenciais do Spotify não configuradas');
-  }
-
-  try {
-    const response = await fetch(SPOTIFY_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`)
-      },
-      body: 'grant_type=client_credentials'
-    });
-
-    const data = await response.json();
-    spotifyAccessToken = data.access_token;
-    // Token expira em 1 hora, renovar 5 minutos antes
-    tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
-
-    return spotifyAccessToken;
-  } catch (error) {
-    console.error("Erro ao obter token do Spotify:", error);
-    throw error;
-  }
-};
-
+// 3. BUSCA DE MÚSICAS (Spotify API via Backend)
+// SEGURANÇA: Client Secret agora está protegido no backend
 const searchMusic = async (query: string): Promise<SearchResult[]> => {
   try {
-    const token = await getSpotifyToken();
+    // Chamar a API serverless que gerencia a autenticação do Spotify
+    const response = await fetch(`/api/spotify-search?query=${encodeURIComponent(query)}`);
 
-    // Buscar tracks no Spotify (mercado BR para resultados localizados)
-    const response = await fetch(
-      `${SPOTIFY_SEARCH_URL}?q=${encodeURIComponent(query)}&type=track&limit=5&market=BR`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
+    if (!response.ok) {
+      throw new Error(`Spotify search failed: ${response.statusText}`);
+    }
 
     const data = await response.json();
     if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
@@ -180,12 +135,22 @@ export const generateAffiliateLink = (item: SearchResult, category: Category): s
   return `https://www.amazon.com.br/s?k=${query}&tag=7list-mvp-20`;
 };
 
-// --- PERSONA CULTURAL (AGORA VIA SERVERLESS) ---
+// --- PERSONA CULTURAL (AGORA VIA SERVERLESS COM AUTENTICAÇÃO) ---
 export const generateCulturalPersona = async (shelf: ShelfData): Promise<string> => {
   try {
+    // Obter token do usuário autenticado
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return "Você precisa estar logado para usar esta funcionalidade.";
+    }
+
     const response = await fetch("/api/analyze", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`
+      },
       body: JSON.stringify({
         shelf: {
           movies: shelf.movies.map(i => i ? `Filme: ${i.title}` : null),
@@ -196,8 +161,11 @@ export const generateCulturalPersona = async (shelf: ShelfData): Promise<string>
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        return "Sessão expirada. Faça login novamente.";
+      }
       const err = await response.json();
-      return err.text || "O oráculo está mudo no momento.";
+      return err.text || err.error || "O oráculo está mudo no momento.";
     }
 
     const data = await response.json();
