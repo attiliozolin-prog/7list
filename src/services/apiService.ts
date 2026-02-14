@@ -47,10 +47,33 @@ const searchBooks = async (query: string): Promise<SearchResult[]> => {
       ? `${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&langRestrict=pt&maxResults=5&key=${GOOGLE_BOOKS_API_KEY}`
       : `${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&langRestrict=pt&maxResults=5`;
 
+    // Logs para diagnóstico (remover após identificar problema)
+    console.log('[GOOGLE BOOKS] Buscando:', query);
+    console.log('[GOOGLE BOOKS] Usando API Key:', GOOGLE_BOOKS_API_KEY ? 'SIM ✅' : 'NÃO ❌');
+    console.log('[GOOGLE BOOKS] User Agent:', navigator.userAgent);
+    console.log('[GOOGLE BOOKS] URL:', url.replace(/key=[^&]+/, 'key=***')); // Ofuscar chave no log
+
     const response = await fetch(url);
+
+    console.log('[GOOGLE BOOKS] Status HTTP:', response.status);
+    console.log('[GOOGLE BOOKS] Status Text:', response.statusText);
+
     const data = await response.json();
 
-    if (!data.items || data.items.length === 0) return [];
+    console.log('[GOOGLE BOOKS] Total de itens retornados:', data.totalItems || 0);
+    console.log('[GOOGLE BOOKS] Itens na resposta:', data.items?.length || 0);
+
+    if (data.error) {
+      console.error('[GOOGLE BOOKS] ERRO NA API:', data.error);
+      return [];
+    }
+
+    if (!data.items || data.items.length === 0) {
+      console.warn('[GOOGLE BOOKS] Nenhum resultado encontrado');
+      return [];
+    }
+
+    console.log('[GOOGLE BOOKS] ✅ Sucesso! Processando resultados...');
 
     return data.items.map((item: any) => {
       const book = item.volumeInfo;
@@ -71,7 +94,8 @@ const searchBooks = async (query: string): Promise<SearchResult[]> => {
       };
     });
   } catch (error) {
-    console.error("Erro Google Books:", error);
+    console.error("[GOOGLE BOOKS] ERRO COMPLETO:", error);
+    console.error("[GOOGLE BOOKS] Tipo do erro:", error instanceof Error ? error.message : 'Erro desconhecido');
     return [];
   }
 };
