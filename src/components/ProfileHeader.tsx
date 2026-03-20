@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Instagram, Camera, Loader2 } from 'lucide-react'; // Adicionei Loader2
+import { UserAvatar } from './UserAvatar';
 import { UserProfile } from '../types';
 import { supabase } from '../lib/supabase'; // Importamos o Supabase para fazer o upload
 
@@ -88,36 +89,26 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     <div className="flex flex-col items-center text-center pt-8 pb-2 md:pt-12 md:pb-4 space-y-6">
 
       {/* Avatar */}
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-gradient-to-tr from-brand-400 to-amber-400 rounded-full opacity-75 blur group-hover:opacity-100 transition duration-200"></div>
-        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
-          {profile.avatarUrl ? (
-            <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400"><Camera size={40} /></div>
-          )}
+      <UserAvatar
+        src={profile.avatarUrl}
+        name={profile.name}
+        size="xl"
+        isEditing={isEditing}
+        uploading={uploading}
+        onUploadClick={() => fileInputRef.current?.click()}
+        countryCode={profile.country}
+      />
 
-          {/* Botão de Upload (Invisível Input + Label Customizado) */}
-          {isEditing && (
-            <>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity cursor-pointer z-10"
-                title="Alterar foto"
-              >
-                {uploading ? <Loader2 className="animate-spin" size={32} /> : <Camera size={32} />}
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handlePhotoUpload}
-                accept="image/*"
-                className="hidden" // Input escondido
-              />
-            </>
-          )}
-        </div>
-      </div>
+      {/* Input de arquivo invisível */}
+      {isEditing && (
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handlePhotoUpload}
+          accept="image/*"
+          className="hidden"
+        />
+      )}
 
       {/* Inputs de Texto */}
       <div className="w-full max-w-lg space-y-2">

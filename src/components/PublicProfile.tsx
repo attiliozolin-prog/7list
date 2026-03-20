@@ -44,7 +44,7 @@ export const PublicProfile: React.FC = () => {
       name: profileData.full_name || 'Sem Nome',
       handle: profileData.username,
       bio: profileData.bio || '',
-      avatarUrl: profileData.avatar_url || 'https://via.placeholder.com/150',
+      avatarUrl: profileData.avatar_url || '',
       instagramUrl: profileData.instagram_url,
       spotifyUrl: profileData.spotify_url
     });

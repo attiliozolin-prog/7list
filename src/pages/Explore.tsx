@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Search, Users, ArrowLeft, Loader2 } from 'lucide-react';
+import { UserAvatar } from '../components/UserAvatar';
 import logo from '../assets/logo.png';
 
 interface UserCard {
@@ -164,15 +165,13 @@ export const Explore: React.FC = () => {
                             >
                                 {/* Avatar */}
                                 <div className="flex flex-col items-center text-center">
-                                    <div className="relative mb-4">
-                                        <img
-                                            src={user.avatar_url || 'https://via.placeholder.com/150'}
-                                            alt={user.full_name}
-                                            className="w-20 h-20 rounded-full object-cover border-4 border-gray-100 group-hover:border-brand-100 transition-all"
+                                    <div className="mb-4">
+                                        <UserAvatar
+                                            src={user.avatar_url}
+                                            name={user.full_name}
+                                            size="lg"
+                                            countryCode={user.country}
                                         />
-                                        {user.country && (
-                                            <span className="absolute -bottom-1 -right-1 text-2xl">{getFlagEmoji(user.country)}</span>
-                                        )}
                                     </div>
 
                                     {/* Nome e Username */}
@@ -197,11 +196,3 @@ export const Explore: React.FC = () => {
     );
 };
 
-// Helper para converter código de país em emoji de bandeira
-function getFlagEmoji(countryCode: string): string {
-    const codePoints = countryCode
-        .toUpperCase()
-        .split('')
-        .map(char => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-}
