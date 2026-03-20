@@ -75,21 +75,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 2. Fallback: Se não tem chave ou se a tentativa com chave falhou (data é null)
         if (!data) {
-            console.log('Usando fallback sem API Key...');
-            const fallbackUrl = `${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&langRestrict=pt&maxResults=5&printType=books`;
+            console.log('Usando fallback: iTunes Search API...');
+            const fallbackUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=ebook&limit=5&country=br`;
 
-            // Tentar passar header de linguagem para ajudar na localização (embora a API possa ignorar dependendo do IP)
-            const response = await fetch(fallbackUrl, {
-                headers: {
-                    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-                }
-            });
+            const response = await fetch(fallbackUrl);
 
             if (!response.ok) {
-                throw new Error(`Google Books API error: ${response.statusText}`);
+                throw new Error(`iTunes API error: ${response.statusText}`);
             }
 
-            data = await response.json();
+            const itunesData = await response.json();
+            
+            // Mapear dados do iTunes para o formato esperado pelo frontend (Google Books)
+            data = {
+                items: (itunesData.results || []).map((track: any) => ({
+                    id: track.trackId ? track.trackId.toString() : Math.random().toString(36).substring(7),
+                    volumeInfo: {
+                        title: track.trackName || 'Título desconhecido',
+                        authors: track.artistName ? [track.artistName] : ['Autor desconhecido'],
+                        publishedDate: track.releaseDate ? track.releaseDate.substring(0, 10) : '',
+                        imageLinks: {
+                            thumbnail: track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '300x300bb') : ''
+                        }
+                    }
+                }))
+            };
         }
 
         // Se houver erro na resposta final
